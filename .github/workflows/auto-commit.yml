@@ -2,14 +2,14 @@ name: Auto Commit
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+    - cron: '0 */6 * * *'  # Runs every 6 hours (4 times a day)
   workflow_dispatch:  # Allows manual execution
 
 jobs:
   update:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # Grants write permissions to the GITHUB_TOKEN
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
