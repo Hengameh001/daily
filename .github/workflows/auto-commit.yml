@@ -3,12 +3,13 @@ name: Auto Commit
 on:
   schedule:
     - cron: '0 0 * * *'  # Runs daily at midnight UTC
+  workflow_dispatch:  # Allows manual execution
 
 jobs:
   update:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Grants write permissions to the GITHUB_TOKEN
+      contents: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
