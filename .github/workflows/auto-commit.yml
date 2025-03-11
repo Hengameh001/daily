@@ -1,4 +1,4 @@
-name: Auto Commit & Auto Issues
+name: Custom Auto Commit & Issue Creator
 
 on:
   schedule:
@@ -14,6 +14,11 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Install GitHub CLI  # ✅ Ensures `gh` is installed
+        run: |
+          sudo apt update
+          sudo apt install gh -y
 
       - name: Set Variables
         run: |
@@ -31,38 +36,48 @@ jobs:
           
           echo "DARK_MODE=$DARK_MODE" >> $GITHUB_ENV
 
-      - name: Set Git Identity  # Fixes "Author identity unknown" error
+      - name: Set Git Identity  # ✅ Fixes "Author identity unknown" error
         run: |
-          git config --global user.email "heni.fakhr@gmail.com"  # <-- Your GitHub email
-          git config --global user.name "Hengameh001"  # <-- Your GitHub username
+          git config --global user.email "heni.fakhr@gmail.com"
+          git config --global user.name "Hengameh001"
 
-      - name: Generate Commits
+      - name: Generate Commits (Custom Messages)
         run: |
+          # Custom commit names
+          COMMIT_MESSAGES=("Daily update" "Keeping the streak" "Another contribution" "Adding value to GitHub")
+          RANDOM_COMMIT=${COMMIT_MESSAGES[$RANDOM % ${#COMMIT_MESSAGES[@]}]}
+
           # Ensure 4 commits every day (1 per run)
           for i in {1..4}; do
-            echo "Regular update $i: $(date)" >> update.txt
+            echo "$RANDOM_COMMIT - $(date)" >> update.txt
             git add update.txt
-            git commit -m "Regular commit #$i: $(date)"
+            git commit -m "$RANDOM_COMMIT - $(date)"
           done
 
           # If today is a "dark commit" day, add 3-6 extra commits
           if [ "$DARK_MODE" = "true" ]; then
             EXTRA_COMMITS=$((RANDOM % 4 + 3))  # Random 3 to 6 extra commits
             for i in $(seq 1 $EXTRA_COMMITS); do
-              echo "Extra update $i: $(date)" >> update.txt
+              RANDOM_COMMIT=${COMMIT_MESSAGES[$RANDOM % ${#COMMIT_MESSAGES[@]}]}
+              echo "$RANDOM_COMMIT (Extra) - $(date)" >> update.txt
               git add update.txt
-              git commit -m "Dark day commit #$i: $(date)"
+              git commit -m "$RANDOM_COMMIT (Extra) - $(date)"
             done
           fi
 
       - name: Push Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Automated commit: $(date)"
+          commit_message: "Automated Commit: $(date)"
 
-      - name: Auto Create GitHub Issue (Without Comments)  # <-- Issue Creation Step
+      - name: Auto Create GitHub Issue (Custom Titles)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ISSUE_TITLE="Automated Issue - $(date)"
-          gh issue create --title "$ISSUE_TITLE"
+          gh auth login --with-token <<< "$GITHUB_TOKEN"
+
+          # Custom issue titles
+          ISSUE_TITLES=("Routine GitHub Issue" "Daily GitHub Activity" "Tracking Contributions" "Staying Active")
+          RANDOM_ISSUE_TITLE=${ISSUE_TITLES[$RANDOM % ${#ISSUE_TITLES[@]}]}
+
+          gh issue create --repo $GITHUB_REPOSITORY --title "$RANDOM_ISSUE_TITLE - $(date)" --body " "
