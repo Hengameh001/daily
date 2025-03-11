@@ -70,12 +70,10 @@ jobs:
         with:
           commit_message: "Automated Commit: $(date)"
 
-      - name: Auto Create GitHub Issue (Custom Titles)
+      - name: Auto Create GitHub Issue (Custom Titles)  # ✅ FIXED: Removed unnecessary login step
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh auth login --with-token <<< "$GITHUB_TOKEN"
-
           # Custom issue titles
           ISSUE_TITLES=("Routine GitHub Issue" "Daily GitHub Activity" "Tracking Contributions" "Staying Active")
           RANDOM_ISSUE_TITLE=${ISSUE_TITLES[$RANDOM % ${#ISSUE_TITLES[@]}]}
