@@ -60,10 +60,9 @@ jobs:
         with:
           commit_message: "Automated commit: $(date)"
 
-      - name: Auto Create GitHub Issue  # <-- NEW: Automatically opens an issue
+      - name: Auto Create GitHub Issue (Without Comments)  # <-- Issue Creation Step
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ISSUE_TITLE="Automated Issue - $(date)"
-          ISSUE_BODY="This is an auto-generated issue to increase contributions.\n\nTime: $(date)"
-          gh issue create --title "$ISSUE_TITLE" --body "$ISSUE_BODY"
+          gh issue create --title "$ISSUE_TITLE"
