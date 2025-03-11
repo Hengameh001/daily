@@ -14,11 +14,42 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Update File
+      - name: Set Variables
         run: |
-          echo "Last update: $(date)" >> update.txt
+          DAY_OF_WEEK=$(date +%u)  # Get current day of the week (1=Monday, 7=Sunday)
+          RANDOM_DARK_DAYS=($(shuf -i 1-7 -n 3))  # Pick 3 random days for dark commits
+          
+          # Check if today is one of the dark commit days
+          DARK_MODE=false
+          for DARK_DAY in "${RANDOM_DARK_DAYS[@]}"; do
+            if [ $DAY_OF_WEEK -eq $DARK_DAY ]; then
+              DARK_MODE=true
+              break
+            fi
+          done
+          
+          echo "DARK_MODE=$DARK_MODE" >> $GITHUB_ENV
 
-      - name: Commit Changes
+      - name: Generate Commits
+        run: |
+          # Ensure 4 commits every day (1 per run)
+          for i in {1..4}; do
+            echo "Regular update $i: $(date)" >> update.txt
+            git add update.txt
+            git commit -m "Regular commit #$i: $(date)"
+          done
+
+          # If today is a "dark commit" day, add 3-6 extra commits
+          if [ "$DARK_MODE" = "true" ]; then
+            EXTRA_COMMITS=$((RANDOM % 4 + 3))  # Random 3 to 6 extra commits
+            for i in $(seq 1 $EXTRA_COMMITS); do
+              echo "Extra update $i: $(date)" >> update.txt
+              git add update.txt
+              git commit -m "Dark day commit #$i: $(date)"
+            done
+          fi
+
+      - name: Push Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Automated commit: $(date)"
