@@ -1,4 +1,4 @@
-name: Auto Commit
+name: Auto Commit & Auto Issues
 
 on:
   schedule:
@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Grants write permissions to the GITHUB_TOKEN
+      issues: write  # Grants permission to create issues
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -58,3 +59,11 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Automated commit: $(date)"
+
+      - name: Auto Create GitHub Issue  # <-- NEW: Automatically opens an issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_TITLE="Automated Issue - $(date)"
+          ISSUE_BODY="This is an auto-generated issue to increase contributions.\n\nTime: $(date)"
+          gh issue create --title "$ISSUE_TITLE" --body "$ISSUE_BODY"
