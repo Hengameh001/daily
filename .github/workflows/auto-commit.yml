@@ -1,81 +1,140 @@
-name: Custom Auto Commit & Issue Creator
+# Workflow name
+name: Daily Auto Commit
 
+# Controls when the workflow will run
 on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+  # Runs on a schedule (every day at 05:00 UTC)
+  # You can adjust the time (e.g., '0 14 * * *' for 2 PM UTC)
+  # Use https://crontab.guru/ to help define the schedule
   schedule:
-    - cron: '0 */6 * * *'  # Runs every 6 hours (4 times a day)
-  workflow_dispatch:  # Allows manual execution
+    - cron: '0 5 * * *'
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  update:
+  # This workflow contains a single job called "auto_commit_job"
+  auto_commit_job:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
+
+    # Permissions needed by the job. 'contents: write' is required to push commits.
     permissions:
-      contents: write  # Grants write permissions to the GITHUB_TOKEN
-      issues: write  # Grants permission to create issues
+      contents: write
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+      # Step 1: Check out the repository code
       - name: Checkout Repository
+        # Uses the standard GitHub action to check out your code
         uses: actions/checkout@v4
+        # fetch-depth: 0 # Uncomment if you need the full commit history, usually not needed here
 
-      - name: Install GitHub CLI  # ✅ Ensures `gh` is installed
+      # Step 2: Determine the current day and if it's a "Deep Green" day
+      - name: Determine Day and Deep Green Status
+        # Assign an ID to this step so its outputs can be referenced later
+        id: day_check
         run: |
-          sudo apt update
-          sudo apt install gh -y
+          # Get the current day of the week using UTC date (0=Sunday, 1=Monday, ..., 6=Saturday)
+          CURRENT_DAY_OF_WEEK=$(date -u +%w)
+          echo "Current day of week (UTC, 0=Sun): $CURRENT_DAY_OF_WEEK"
 
-      - name: Set Variables
-        run: |
-          DAY_OF_WEEK=$(date +%u)  # Get current day of the week (1=Monday, 7=Sunday)
-          RANDOM_DARK_DAYS=($(shuf -i 1-7 -n 3))  # Pick 3 random days for dark commits
-          
-          # Check if today is one of the dark commit days
-          DARK_MODE=false
-          for DARK_DAY in "${RANDOM_DARK_DAYS[@]}"; do
-            if [ $DAY_OF_WEEK -eq $DARK_DAY ]; then
-              DARK_MODE=true
-              break
+          # Randomly select 3 unique days of the week (numbers 0 through 6)
+          # 'shuf' shuffles the numbers 0-6 and '-n 3' picks the first 3
+          # Using process substitution `<(...)` and `read -ra` to safely read into an array
+          read -ra DEEP_GREEN_DAYS < <(shuf -i 0-6 -n 3 | tr '\n' ' ')
+          echo "Chosen deep green days this run: ${DEEP_GREEN_DAYS[@]}"
+
+          # Check if the current day is one of the randomly selected days
+          IS_DEEP_GREEN_DAY="false"
+          for DAY in "${DEEP_GREEN_DAYS[@]}"; do
+            if [[ "$CURRENT_DAY_OF_WEEK" -eq "$DAY" ]]; then
+              IS_DEEP_GREEN_DAY="true"
+              break # Exit the loop early if a match is found
             fi
           done
-          
-          echo "DARK_MODE=$DARK_MODE" >> $GITHUB_ENV
 
-      - name: Set Git Identity  # ✅ Fixes "Author identity unknown" error
+          echo "Is today a deep green day? $IS_DEEP_GREEN_DAY"
+
+          # Output the result so it can be used in subsequent steps
+          # This uses the modern recommended way to set outputs via GITHUB_OUTPUT
+          echo "is_deep_green=$IS_DEEP_GREEN_DAY" >> "$GITHUB_OUTPUT"
+
+      # Step 3: Configure Git user identity for the commits
+      - name: Set Git Identity
         run: |
+          # Configure the username and email associated with the commits
+          # IMPORTANT: Replace with your actual GitHub username and email
           git config --global user.email "heni.fakhr@gmail.com"
           git config --global user.name "Hengameh001"
 
-      - name: Generate Commits (Custom Messages)
+      # Step 4: Generate the commit(s) based on whether it's a deep green day
+      - name: Generate and Commit Changes
+        env:
+          # Use the output from the 'day_check' step via the 'steps' context
+          IS_DEEP_GREEN: ${{ steps.day_check.outputs.is_deep_green }}
         run: |
-          # Custom commit names
-          COMMIT_MESSAGES=("Daily update" "Keeping the streak" "Another contribution" "Adding value to GitHub")
-          RANDOM_COMMIT=${COMMIT_MESSAGES[$RANDOM % ${#COMMIT_MESSAGES[@]}]}
+          # --- Configuration ---
+          MIN_EXTRA_COMMITS=5  # Minimum number of *additional* commits on deep green days
+          MAX_EXTRA_COMMITS=10 # Maximum number of *additional* commits on deep green days
+          FILENAME_TO_MODIFY="daily_update_log.md" # The file that will be modified
+          # --- End Configuration ---
 
-          # Ensure 4 commits every day (1 per run)
-          for i in {1..4}; do
-            echo "$RANDOM_COMMIT - $(date)" >> update.txt
-            git add update.txt
-            git commit -m "$RANDOM_COMMIT - $(date)"
-          done
+          # Define a list of possible commit messages
+          COMMIT_MESSAGES=(
+            "feat: Automated daily update"
+            "chore: Keep activity graph green"
+            "docs: Update daily activity log"
+            "refactor: Routine auto-commit"
+            "style: Maintain daily contribution streak"
+            "perf: Add daily activity point"
+            "ci: Daily workflow commit"
+          )
 
-          # If today is a "dark commit" day, add 3-6 extra commits
-          if [ "$DARK_MODE" = "true" ]; then
-            EXTRA_COMMITS=$((RANDOM % 4 + 3))  # Random 3 to 6 extra commits
-            for i in $(seq 1 $EXTRA_COMMITS); do
-              RANDOM_COMMIT=${COMMIT_MESSAGES[$RANDOM % ${#COMMIT_MESSAGES[@]}]}
-              echo "$RANDOM_COMMIT (Extra) - $(date)" >> update.txt
-              git add update.txt
-              git commit -m "$RANDOM_COMMIT (Extra) - $(date)"
-            done
+          # Determine the total number of commits to make today
+          TOTAL_COMMITS=1 # Always make at least one commit
+
+          # Check the environment variable passed from the previous step's output
+          if [[ "$IS_DEEP_GREEN" == "true" ]]; then
+            echo "Deep green day! Calculating extra commits."
+            # Calculate a random number of extra commits within the defined range
+            EXTRA_COMMITS=$(( RANDOM % (MAX_EXTRA_COMMITS - MIN_EXTRA_COMMITS + 1) + MIN_EXTRA_COMMITS ))
+            TOTAL_COMMITS=$(( TOTAL_COMMITS + EXTRA_COMMITS ))
+            echo "Total commits today: $TOTAL_COMMITS (1 base + $EXTRA_COMMITS extra)"
+          else
+            echo "Normal day. Making 1 commit."
           fi
 
+          # Loop to create the specified number of commits
+          for i in $(seq 1 $TOTAL_COMMITS); do
+            # Select a random commit message from the list
+            RANDOM_MSG_INDEX=$(( RANDOM % ${#COMMIT_MESSAGES[@]} ))
+            COMMIT_MESSAGE="${COMMIT_MESSAGES[$RANDOM_MSG_INDEX]} - commit $i/$TOTAL_COMMITS"
+
+            # Append a unique line to the target file to ensure there's a change to commit
+            # Using UTC timestamp for uniqueness
+            echo "Activity log update on $(date -u +"%Y-%m-%d %H:%M:%S UTC"): Commit $i of $TOTAL_COMMITS" >> "$FILENAME_TO_MODIFY"
+
+            # Stage the modified file
+            git add "$FILENAME_TO_MODIFY"
+
+            # Commit the change with the selected message and a timestamp
+            # Using a timestamp in the commit message itself can also help ensure uniqueness if needed
+            git commit -m "$COMMIT_MESSAGE ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+
+            # Optional: Add a small delay if you encounter issues with commits being too close together
+            # sleep 1
+          done
+
+          echo "Generated $TOTAL_COMMITS commit(s) locally."
+
+      # Step 5: Push the generated commits to the remote repository
       - name: Push Changes
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Automated Commit: $(date)"
-
-      - name: Auto Create GitHub Issue (Custom Titles)  # ✅ FIXED: Removed unnecessary login step
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Custom issue titles
-          ISSUE_TITLES=("Routine GitHub Issue" "Daily GitHub Activity" "Tracking Contributions" "Staying Active")
-          RANDOM_ISSUE_TITLE=${ISSUE_TITLES[$RANDOM % ${#ISSUE_TITLES[@]}]}
+          # Push the commits from the local branch to the corresponding remote branch (origin)
+          # HEAD refers to the current commit/branch checked out
+          git push origin HEAD
+          echo "Pushed commit(s) to the remote repository."
 
-          gh issue create --repo $GITHUB_REPOSITORY --title "$RANDOM_ISSUE_TITLE - $(date)" --body " "
+
