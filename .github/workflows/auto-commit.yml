@@ -1,5 +1,5 @@
 # Workflow name
-name: Daily Auto Commit
+name: Daily Auto Commit (3 Base, 6+ Extra)
 
 # Controls when the workflow will run
 on:
@@ -65,7 +65,7 @@ jobs:
       - name: Set Git Identity
         run: |
           # Configure the username and email associated with the commits
-          # IMPORTANT: Replace with your actual GitHub username and email
+          # Using the provided user information
           git config --global user.email "heni.fakhr@gmail.com"
           git config --global user.name "Hengameh001"
 
@@ -76,8 +76,9 @@ jobs:
           IS_DEEP_GREEN: ${{ steps.day_check.outputs.is_deep_green }}
         run: |
           # --- Configuration ---
-          MIN_EXTRA_COMMITS=5  # Minimum number of *additional* commits on deep green days
-          MAX_EXTRA_COMMITS=10 # Maximum number of *additional* commits on deep green days
+          BASE_COMMITS=3       # Minimum number of commits every day (Normal days)
+          MIN_EXTRA_COMMITS=6  # Minimum number of *additional* commits on deep green days
+          MAX_EXTRA_COMMITS=12 # Maximum number of *additional* commits on deep green days (adjust higher if desired)
           FILENAME_TO_MODIFY="daily_update_log.md" # The file that will be modified
           # --- End Configuration ---
 
@@ -90,20 +91,23 @@ jobs:
             "style: Maintain daily contribution streak"
             "perf: Add daily activity point"
             "ci: Daily workflow commit"
+            "build: Update build timestamp for activity"
+            "test: Add placeholder test for activity"
           )
 
-          # Determine the total number of commits to make today
-          TOTAL_COMMITS=1 # Always make at least one commit
+          # Initialize the total number of commits for today
+          TOTAL_COMMITS=$BASE_COMMITS # Start with the base number of commits (3)
 
-          # Check the environment variable passed from the previous step's output
+          # Check if today is a deep green day
           if [[ "$IS_DEEP_GREEN" == "true" ]]; then
             echo "Deep green day! Calculating extra commits."
-            # Calculate a random number of extra commits within the defined range
+            # Calculate a random number of extra commits (6 to 12)
             EXTRA_COMMITS=$(( RANDOM % (MAX_EXTRA_COMMITS - MIN_EXTRA_COMMITS + 1) + MIN_EXTRA_COMMITS ))
-            TOTAL_COMMITS=$(( TOTAL_COMMITS + EXTRA_COMMITS ))
-            echo "Total commits today: $TOTAL_COMMITS (1 base + $EXTRA_COMMITS extra)"
+            # Add the extra commits to the base commits
+            TOTAL_COMMITS=$(( TOTAL_COMMITS + EXTRA_COMMITS )) # Total will be 9 to 15
+            echo "Total commits today: $TOTAL_COMMITS ($BASE_COMMITS base + $EXTRA_COMMITS extra)"
           else
-            echo "Normal day. Making 1 commit."
+            echo "Normal day. Making $BASE_COMMITS commit(s)." # Will make 3 commits
           fi
 
           # Loop to create the specified number of commits
@@ -136,5 +140,4 @@ jobs:
           # HEAD refers to the current commit/branch checked out
           git push origin HEAD
           echo "Pushed commit(s) to the remote repository."
-
 
