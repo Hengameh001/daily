@@ -1,5 +1,5 @@
 # Workflow name
-name: Daily Auto Commit (3 Base, 6+ Extra)
+name: Daily Auto Commit (3 Base, 6+ Extra) - Fix Attempt
 
 # Controls when the workflow will run
 on:
@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
         # fetch-depth: 0 # Uncomment if you need the full commit history, usually not needed here
 
-      # Step 2: Determine the current day and if it's a "Deep Green" day
+      # Step 2: Determine the current day and if it's a "Deep Green" day (Revised)
       - name: Determine Day and Deep Green Status
         # Assign an ID to this step so its outputs can be referenced later
         id: day_check
@@ -41,14 +41,25 @@ jobs:
           echo "Current day of week (UTC, 0=Sun): $CURRENT_DAY_OF_WEEK"
 
           # Randomly select 3 unique days of the week (numbers 0 through 6)
-          # 'shuf' shuffles the numbers 0-6 and '-n 3' picks the first 3
-          # Using process substitution `<(...)` and `read -ra` to safely read into an array
-          read -ra DEEP_GREEN_DAYS < <(shuf -i 0-6 -n 3 | tr '\n' ' ')
+          # Use command substitution to capture the output, then read into array using 'here string'
+          SHUFFLED_DAYS_OUTPUT=$(shuf -i 0-6 -n 3)
+          if [ -z "$SHUFFLED_DAYS_OUTPUT" ]; then
+             echo "Error: shuf command produced no output."
+             exit 1
+          fi
+          read -ra DEEP_GREEN_DAYS <<< "$SHUFFLED_DAYS_OUTPUT" # Use 'here string' <<<
+
+          # Add a check to ensure the array was populated correctly
+          if [ ${#DEEP_GREEN_DAYS[@]} -ne 3 ]; then
+            echo "Error: Failed to populate DEEP_GREEN_DAYS array correctly. Output was: [$SHUFFLED_DAYS_OUTPUT]. Array content: [${DEEP_GREEN_DAYS[@]}]"
+            exit 1 # Explicitly exit with error if array isn't populated
+          fi
           echo "Chosen deep green days this run: ${DEEP_GREEN_DAYS[@]}"
 
           # Check if the current day is one of the randomly selected days
           IS_DEEP_GREEN_DAY="false"
           for DAY in "${DEEP_GREEN_DAYS[@]}"; do
+            # Use arithmetic comparison for integers
             if [[ "$CURRENT_DAY_OF_WEEK" -eq "$DAY" ]]; then
               IS_DEEP_GREEN_DAY="true"
               break # Exit the loop early if a match is found
