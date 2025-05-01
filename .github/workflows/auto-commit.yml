@@ -1,5 +1,5 @@
 # Workflow name
-name: Daily Auto Commit (3 Base, 6+ Extra) - Fix Attempt
+name: Daily Auto Commit (3 Base, 6+ Extra) - Fix Attempt 2
 
 # Controls when the workflow will run
 on:
@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
         # fetch-depth: 0 # Uncomment if you need the full commit history, usually not needed here
 
-      # Step 2: Determine the current day and if it's a "Deep Green" day (Revised)
+      # Step 2: Determine the current day and if it's a "Deep Green" day (Revised Again)
       - name: Determine Day and Deep Green Status
         # Assign an ID to this step so its outputs can be referenced later
         id: day_check
@@ -41,13 +41,17 @@ jobs:
           echo "Current day of week (UTC, 0=Sun): $CURRENT_DAY_OF_WEEK"
 
           # Randomly select 3 unique days of the week (numbers 0 through 6)
-          # Use command substitution to capture the output, then read into array using 'here string'
-          SHUFFLED_DAYS_OUTPUT=$(shuf -i 0-6 -n 3)
+          # Capture the output, replacing newlines with spaces using 'tr'
+          SHUFFLED_DAYS_OUTPUT=$(shuf -i 0-6 -n 3 | tr '\n' ' ')
           if [ -z "$SHUFFLED_DAYS_OUTPUT" ]; then
              echo "Error: shuf command produced no output."
              exit 1
           fi
-          read -ra DEEP_GREEN_DAYS <<< "$SHUFFLED_DAYS_OUTPUT" # Use 'here string' <<<
+          # Trim potential leading/trailing whitespace if any (good practice)
+          SHUFFLED_DAYS_OUTPUT=$(echo $SHUFFLED_DAYS_OUTPUT)
+
+          # Read the space-separated string into the array
+          read -ra DEEP_GREEN_DAYS <<< "$SHUFFLED_DAYS_OUTPUT"
 
           # Add a check to ensure the array was populated correctly
           if [ ${#DEEP_GREEN_DAYS[@]} -ne 3 ]; then
